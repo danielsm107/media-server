@@ -1,0 +1,17 @@
+# Directories
+cache/
+media/
+config/
+homarr/
+
+# Environment files
+.env
+
+# System files
+.DS_Store
+
+# Log files
+*.log
+
+# Downloaded content
+downloads/

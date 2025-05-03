@@ -1,0 +1,182 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    ports:
+      - "8096:8096"
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - ./config/jellyfin:/config
+      - ./media:/media
+      - ./cache:/cache
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    ports:
+      - "9696:9696"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./config/prowlarr:/config
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./config/sonarr:/config
+      - ./media:/media
+      - ./media/downloads:/downloads
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./config/radarr:/config
+      - ./media:/media
+      - ./media/downloads:/downloads
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    ports: 
+      - "8081:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+    volumes:
+      - ./config/qbittorrent:/config
+      - ./media/downloads:/downloads
+    restart: unless-stopped
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./config/jellyseerr:/app/config
+    ports:
+      - "5055:5055"
+    restart: unless-stopped
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '81:81'
+    volumes:
+      - ./config/nginx:/data
+      - ./config/nginx/letsencrypt:/etc/letsencrypt
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=${TZ}
+    ports:
+      - "${PORT:-8191}:8191"
+    restart: unless-stopped 
+
+  homarr:
+    container_name: homarr
+    image: ghcr.io/homarr-labs/homarr:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./homarr/appdata:/appdata
+    environment:
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+    ports:
+      - '7575:7575'
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./config/bazarr:/config
+      - ./media/movies:/movies
+      - ./media/TV shows:/tv
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+    network_mode: host
+    restart: always
+    user: "${PUID}:${PGID}"
+    read_only: true
+    cap_drop: [all]
+    security_opt: [no-new-privileges:true]
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=${CLOUDFLARE_DOMAINS}
+      - PROXIED=${CLOUDFLARE_PROXIED:-false}
+
+  gamevault-backend:
+    image: phalcode/gamevault-backend:latest
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      METADATA_IGDB_CLIENT_ID: ${METADATA_IGDB_CLIENT_ID}
+      METADATA_IGDB_CLIENT_SECRET: ${METADATA_IGDB_CLIENT_SECRET}
+    volumes:
+      - ${GAMEVAULT_GAMES_PATH:-./games}:/files
+      - ${GAMEVAULT_GAMES_PATH2:-./games2}:/files/disk2
+      - ${GAMEVAULT_MEDIA_PATH:-./media}:/media
+      - ${GAMEVAULT_CONFIG_PATH:-./config}:/config
+    ports:
+      - 8080:8080/tcp
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ${POSTGRES_DATA_PATH:-./db/data}:/var/lib/postgresql/data
+
+networks:
+  default:
+    name: media-network
